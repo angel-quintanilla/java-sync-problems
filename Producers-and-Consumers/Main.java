@@ -6,6 +6,8 @@ public class Main{
   static final int MAX_QUEUE_SIZE = 10; 
   static final int MIN = 5; 
   static final int MAX = 500; 
+
+
   public static void main(String[] args) {
     
     ArrayDeque<Integer> q = new ArrayDeque<Integer>(); 
@@ -46,6 +48,9 @@ public class Main{
 }
 
 
+
+
+
 class Producer extends Thread{ 
   
 
@@ -80,10 +85,10 @@ class Producer extends Thread{
             System.out.printf("Value of: %d has been produced.\n", production); 
           }
           
+          sem.release();
         } 
         //interruptions during acquire() don't post, so this just reloops 
         catch (InterruptedException e) {}
-        finally { sem.release(); }
       }
 
       // When the thread finally produces, it takes 1.5 seconds until it can produce something else 
@@ -94,6 +99,9 @@ class Producer extends Thread{
     }
   }
 }
+
+
+
 
 class Consumer extends Thread{ 
   
@@ -118,9 +126,9 @@ class Consumer extends Thread{
         sem.acquire(); 
         Integer retrieval = q.poll(); 
         if(retrieval != null) System.out.printf("Value of: %d has been consumed.\n", retrieval); 
+        sem.release();
       }
       catch(InterruptedException e) {}
-      finally { sem.release();}
 
     }
     
