@@ -1,3 +1,7 @@
+/*
+ * Puzzle : Extend the solution so that when a writer arrives, the existing readers can finish 
+ *          but no additional readers may enter
+ */
 import java.util.LinkedList;
 import java.util.concurrent.Semaphore;
 
@@ -5,16 +9,17 @@ public class Main {
     public static void main(String[] args) {
         Semaphore mutex = new Semaphore(1);
         Semaphore noReaders = new Semaphore(1); 
+        Semaphore turnstile = new Semaphore(1);
         LinkedList<Integer> ll = new LinkedList<Integer>(); 
 
 
-        Reader r1 = new Reader(mutex, noReaders, ll, 1); 
-        Reader r2 = new Reader(mutex, noReaders, ll, 2); 
-        Reader r3 = new Reader(mutex, noReaders, ll, 3); 
+        Reader r1 = new Reader(mutex, noReaders, ll, turnstile, 1); 
+        Reader r2 = new Reader(mutex, noReaders, ll, turnstile,  2); 
+        Reader r3 = new Reader(mutex, noReaders, ll, turnstile,  3); 
         
-        Writer w1 = new Writer(noReaders, ll,1);
-        Writer w2 = new Writer(noReaders, ll,2);
-        Writer w3 = new Writer(noReaders, ll,3);
+        Writer w1 = new Writer(noReaders, ll, turnstile, 1);
+        Writer w2 = new Writer(noReaders, ll, turnstile, 2);
+        Writer w3 = new Writer(noReaders, ll, turnstile, 3);
         
         
         r1.start();
@@ -39,10 +44,16 @@ public class Main {
     }    
 }
 
+
+
+
+
+
 class Reader extends Thread{
     private LinkedList<Integer> ll; 
     private Semaphore mutex; 
     private Semaphore noReaders; 
+    private Semaphore turnstile; 
     private static volatile int currentReaders = 0; 
     private int ID; 
 
@@ -52,10 +63,11 @@ class Reader extends Thread{
      * @param noReaders
      * @param ll            Shared Linked List 
     */
-    public Reader(Semaphore mutex, Semaphore noReaders, LinkedList<Integer> ll, int ID){ 
+    public Reader(Semaphore mutex, Semaphore noReaders, LinkedList<Integer> ll, Semaphore turnstile, int ID){ 
         this.mutex = mutex;
         this.noReaders = noReaders;
         this.ll = ll;
+        this.turnstile = turnstile;
         this.ID = ID;
     }
 
@@ -65,6 +77,9 @@ class Reader extends Thread{
         for(;;){
             
             try {
+                turnstile.acquire();
+                turnstile.release();
+
                 //first in locks
                 mutex.acquire();
                     ++currentReaders; 
@@ -87,7 +102,7 @@ class Reader extends Thread{
                         noReaders.release(); 
                     }        
                 mutex.release(); 
-
+                
             } 
             catch (InterruptedException e) {}
             
@@ -102,9 +117,14 @@ class Reader extends Thread{
 
 
 
+
+
+
+
 class Writer extends Thread{
     private LinkedList<Integer> ll; 
     private Semaphore noReaders; 
+    private Semaphore turnstile; 
     private int ID; 
  
 
@@ -113,15 +133,17 @@ class Writer extends Thread{
     static final int MAX_RAND = 500; 
 
 
-    public Writer(Semaphore noReaders, LinkedList<Integer> ll, int ID){
+    public Writer(Semaphore noReaders, LinkedList<Integer> ll, Semaphore turnstile,int ID){
         this.noReaders = noReaders; 
         this.ll = ll; 
+        this.turnstile = turnstile; 
         this.ID = ID;
     }
 
     public void run(){ 
         for(;;){
             try {
+                turnstile.acquire();
                 int newEntry = MIN_RAND + (int)(Math.random()*MAX_RAND-MIN_RAND+1); 
                 noReaders.acquire();
                 
@@ -131,7 +153,10 @@ class Writer extends Thread{
                 printLL();
             } 
             catch (InterruptedException e) {} //heh.
-            finally{noReaders.release();}
+            finally{
+                turnstile.release();
+                noReaders.release();
+            }
         
             // Look to update the list every .5 seconds
             try {Thread.sleep(500);} 
